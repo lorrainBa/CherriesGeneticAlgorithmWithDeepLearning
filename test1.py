@@ -3,7 +3,7 @@ from sys import exit
 import random
 import math
 import copy
-
+test =0
 pygame.init()
 
 random.seed()
