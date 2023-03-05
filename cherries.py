@@ -5,6 +5,7 @@ import math
 import copy
 import tensorflow as tf
 from tensorflow import keras
+import numpy as np
 
 pygame.init()
 
@@ -410,6 +411,75 @@ def main():
     
     initRound("firstTime")
     play()
+
+class Brain():
+    #Number of neuron on first layer
+    n1 = 4
+    #Numer of neuron on last layer to get the x and y coord
+    n2 = 2
+
+
+    def __init__(self,genome):
+        #Get the 
+        n0 = len(genome)
+        #Number of neuron on first layer
+        n1 = 4
+        #Numer of neuron on last layer to get the x and y coord
+        n2 = 2
+
+        W1 = np.random.randn(n1,n0)
+        b1 = np.random.randn(n1,1)
+        W2 = np.random.randn(n2,n1)
+        b2 = np.random.randn(n2,1)
+
+        #Important variables
+        self.parameters = {
+            'W1' : W1,
+            'b1' : b1,
+            'W2' : W2,
+            'b2' : b2
+        }
+        
+
+    def prediction(self,X):
+
+        W1 = self.parameters['W1']
+        b1 = self.parameters['b1']
+        W2 = self.parameters['W2']
+        b2 = self.parameters['b2']
+
+        Z1 = W1.dot(X) + b1
+        #relu activation
+        A1 = np.maximum(0, Z1)
+        Z2 = W2.dot(A1) + b2
+        A2 = self.softmax(Z2)
+
+        return(A2)
+
+    def updateNeuralNetworks(self,parameters,mutation):
+        W1 = parameters['W1']
+        b1 = parameters['b1']
+        W2 = parameters['W2']
+        b2 = parameters['b2']
+
+        W1 = W1 + mutation
+        b1 = b1 + mutation
+        W2 = W2 + mutation
+        b2 = b2 + mutation
+
+        parameters = {
+            'W1' : W1,
+            'b1' : b1,
+            'W2' : W2,
+            'b2' : b2
+        }
+
+        return(parameters)
+
+    def softmax(self,X):
+        return(np.exp(X)/np.exp(X).sum())
+
+
 
 main()
 
