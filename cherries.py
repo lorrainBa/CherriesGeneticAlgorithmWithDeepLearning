@@ -9,11 +9,12 @@ import numpy as np
 
 pygame.init()
 
-random.seed()
+random.seed(2)
+np.random.seed(12)
 
-frameRate = 60
-numberOfSurvivor = 10
-numberOfFruit = 30
+frameRate = 80
+numberOfSurvivor = 1
+numberOfFruit = 10
 #Variables of the screen and hud
 #screen variables
 screenWidth = 1800
@@ -47,14 +48,113 @@ fruitGroup = pygame.sprite.Group()
 meanGenome=None
 
 #Neural network variables
+factorWidthByHeight = gameWidth/gameHeight
 widthNormalization = 1/gameWidth
 heightNormalization = 1/gameHeight
 
+class Brain():
+    #Number of neuron on first layer
+    n1 = 4
+    #Numer of neuron on last layer to get the x and y coord
+    n2 = 2
+
+
+    def __init__(self,numberOfBrainCaptor, brainParameters = False):
+        #Get the 
+        n0 = numberOfBrainCaptor
+        #Number of neuron on first layer
+        n1 = 4
+        #Numer of neuron on last layer to get the x and y coord
+        n2 = 2
+
+        if brainParameters == False:
+            W1 = np.random.randn(n1,n0)
+            b1 = np.random.randn(n1,1)
+            W2 = np.random.randn(n2,n1)
+            b2 = np.random.randn(n2,1)
+            #Important variables
+            self.brainParameters = {
+                'W1' : W1,
+                'b1' : b1,
+                'W2' : W2,
+                'b2' : b2
+            }
+
+        else:
+            self.brainParameters = brainParameters
+
+    def prediction(self,X):
+
+        print("entrée", X)
+        print("parametres",self.brainParameters)
+        W1 = self.brainParameters['W1']
+        b1 = self.brainParameters['b1']
+        W2 = self.brainParameters['W2']
+        b2 = self.brainParameters['b2']
+
+        Z1 = W1.dot(X) + b1
+        print("Z1", Z1)
+        #relu activation
+        A1 = 1 / (1+np.exp(-Z1))
+        print("A1", Z1)
+        Z2 = W2.dot(A1) + b2
+        print("Z2", Z2)
+        #Softmax activation
+        A2 = np.tanh(Z2)
+        print("sortie", A2)
+        A20 = A2[0][0] / (abs(A2[0][0])+abs(A2[1][0]))
+        A21 = A2[1][0] / (abs(A2[0][0])+abs(A2[1][0]))
+        A2[0][0] = A20
+        A2[1][0]= A21
+        
+        return(A2)
+
+    def updateNeuralNetworks(self,parameters,mutation):
+        W1 = self.brainParameters['W1']
+        b1 = self.brainParameters['b1']
+        W2 = self.brainParameters['W2']
+        b2 = self.brainParameters['b2']
+
+        W1 = W1 + mutation
+        b1 = b1 + mutation
+        W2 = W2 + mutation
+        b2 = b2 + mutation
+
+        self.brainParameters = {
+            'W1' : W1,
+            'b1' : b1,
+            'W2' : W2,
+            'b2' : b2
+        }
+
+
+    def softmax(self,X):
+
+
+        return(np.exp(X)/np.exp(X).sum())
+
+    def getBrainParameters(self):
+        return(self.brainParameters)
+
+
+
 class Survivor(pygame.sprite.Sprite):
-    def __init__(self,xPosition,yPosition,genome = {"speed" : 0.5, "size" : 1, "fieldOfView" : 3}):
+    def __init__(self,xPosition,yPosition,genome = {"speed" : 0.5, "size" : 1, "fieldOfView" : 3}, brain = False):
         super().__init__()
         #Init the genome of the survivor
         self.genome = genome
+        #Init of the neural network model
+        self.brain = Brain(4,brain)
+        """
+        self.model = tf.keras.models.Sequential()
+        self.model.add(tf.keras.layers.Dense(5,activation="relu"))
+        self.model.add(tf.keras.layers.Dense(2,activation="softmax"))
+        model.compile(
+            loss="sparse_categorical_crossentropy",
+            optimizer="sgd",
+            metrics=["accuracy"]
+        )"""
+
         #Variable that describe his comportment and score
         self.score = 0
         self.stamina=20
@@ -82,7 +182,9 @@ class Survivor(pygame.sprite.Sprite):
     #Update function
     def update(self):
         fruitsInSight,survivorInSight = self.visionOfTheEnvironment()
-        self.moove(fruitsInSight,survivorInSight)
+        """self.moove(fruitsInSight,survivorInSight)"""
+        self.moove2()
+        
         self.checkCollision()
     
     def destroy(self):
@@ -196,30 +298,69 @@ class Survivor(pygame.sprite.Sprite):
                     xToGo,yToGo = fruit.rect.centerx,fruit.rect.centery
                     distanceNearestFruit = distanceFruitSprite
         return(xToGo,yToGo)
-    """
+    
+
     def neuralNetworkDecision(self):
         global widthNormalization
         global heightNormalization
+        #Get survivor normalized position
         xN = self.rect.centerx * widthNormalization
         yN = self.rect.centery * heightNormalization 
+        #Get nearestfruit normalized position
         xFruitN=0
         yFruitN=0
         fruitsInSight,survivorInSight=self.visionOfTheEnvironment()
-
         if fruitsInSight:
-            xFruitN,yFruitN=self.findNearestFruit(self,fruitsInSight)
-            xFruitN *= widthNormalization
-            yFruitN *= heightNormalization
+            xFruitN,yFruitN=self.findNearestFruit(fruitsInSight)
+        xFruitN *= widthNormalization
+        yFruitN *= heightNormalization
         
-        model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.Dense(5,activation="relu"))
-        model.add(tf.keras.layers.Dense(2,activation="softmax"))
+        output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))
 
-        model.compile(
-            loss="sparse_categorical_crossentropy",
-            optimizer="sgd",
-            metrics=["accuracy"]
-        )"""
+        return(output[0][0],output[1][0])
+    
+    def moove2(self):
+        currentX,currentY= self.rect.centerx * widthNormalization , self.rect.centery * heightNormalization
+        xSpeed, ySpeed = self.neuralNetworkDecision()
+        """xSpeed = (xSpeed - 0.5)*2
+        ySpeed = (ySpeed - 0.5)*2"""
+        """if xSpeed <0.5:
+            xSign = -1
+        else:
+            xSign =1
+        if ySpeed <0.5:
+            ySign = -1
+        else:
+            ySign = 1
+        coefDirecteur = ySpeed/(xSpeed+0.000001)
+
+        xSpeed = self.genome["speed"]/(1+coefDirecteur) 
+        ySpeed = self.genome["speed"] - xSpeed
+        xSpeed *= xSign
+        ySpeed *= ySign
+"""
+
+        
+
+        #Moove the charactezr along his speed but if the speed is too slow it still moove on the x or y randomly
+        if (abs(xSpeed) > 0.1 or abs(ySpeed) > 0.1):
+            self.rect.centerx += xSpeed*10
+            self.rect.centery += ySpeed*10
+        else:
+            """if abs(xSpeed) > abs(ySpeed):
+                self.rect.centerx += signX
+            else:
+                self.rect.centery += signY
+            """
+        if self.rect.centerx <= 0:
+            self.rect.centerx = gameWidth 
+        elif self.rect.centerx > gameWidth:
+            self.rect.centerx = 0 
+
+        elif self.rect.centery <= 0:
+            self.rect.centery = gameHeight 
+        elif self.rect.centery > gameHeight:
+            self.rect.centery = 0 
         
     
 
@@ -253,7 +394,7 @@ def initRound(typeOfInit):
 
         for OldSurvivor in survivorGroup:
             for i in range (OldSurvivor.score):
-                survivorsGenome.append(OldSurvivor.genome)
+                survivorsGenome.append((OldSurvivor.genome,OldSurvivor.brain.brainParameters))
             OldSurvivor.destroy()
 
         #Spawn the new survivor with modified genome
@@ -261,11 +402,24 @@ def initRound(typeOfInit):
             #Get actual value
             xSpawn = random.randint(0,gameWidth)
             ySpawn = random.randint(0,gameHeight)
-            genome = random.choice(survivorsGenome)
+            genome,brain = random.choice(survivorsGenome)
+            
+            weightMutated,brainMutation = random.choice(list(brain.items()))
+            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
+            brain[weightMutated] = brainMutation
+            weightMutated,brainMutation = random.choice(list(brain.items()))
+            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
+            brain[weightMutated] = brainMutation
+            weightMutated,brainMutation = random.choice(list(brain.items()))
+            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
+            brain[weightMutated] = brainMutation
+            
 
             #Generate mutation
-            mutationSpeedSize = random.uniform(-0.15,0.15)
-            mutationFieldOfView = random.uniform(-0.15,0.15)
+            mutationSpeedSize = 0
+            mutationFieldOfView = 0
+            """mutationSpeedSize = random.uniform(-0.15,0.15)
+            mutationFieldOfView = random.uniform(-0.15,0.15)"""
 
             newSpeed = genome["speed"] + mutationSpeedSize
             newSize = genome["size"] - mutationSpeedSize*2
@@ -276,7 +430,7 @@ def initRound(typeOfInit):
             
 
 
-            survivorGroup.add(Survivor(xSpawn,ySpawn,newGenome))
+            survivorGroup.add(Survivor(xSpawn,ySpawn,newGenome,brain))
     
 
         
@@ -310,7 +464,11 @@ def initRound(typeOfInit):
 def play():
     global frameRate
     ownEvent=None
+    timeOfRound = 0
     while True:
+        timeOfRound += 1
+        if timeOfRound > 500:
+            ownEvent = "newRound"
 
         
 
@@ -322,6 +480,7 @@ def play():
             ownEvent = "newRound"
 
         if ownEvent == "newRound":
+            timeOfRound = 0
             pygame.time.wait(0)
             initRound("newRound")
             ownEvent = None
@@ -412,72 +571,6 @@ def main():
     initRound("firstTime")
     play()
 
-class Brain():
-    #Number of neuron on first layer
-    n1 = 4
-    #Numer of neuron on last layer to get the x and y coord
-    n2 = 2
-
-
-    def __init__(self,genome):
-        #Get the 
-        n0 = len(genome)
-        #Number of neuron on first layer
-        n1 = 4
-        #Numer of neuron on last layer to get the x and y coord
-        n2 = 2
-
-        W1 = np.random.randn(n1,n0)
-        b1 = np.random.randn(n1,1)
-        W2 = np.random.randn(n2,n1)
-        b2 = np.random.randn(n2,1)
-
-        #Important variables
-        self.parameters = {
-            'W1' : W1,
-            'b1' : b1,
-            'W2' : W2,
-            'b2' : b2
-        }
-        
-
-    def prediction(self,X):
-
-        W1 = self.parameters['W1']
-        b1 = self.parameters['b1']
-        W2 = self.parameters['W2']
-        b2 = self.parameters['b2']
-
-        Z1 = W1.dot(X) + b1
-        #relu activation
-        A1 = np.maximum(0, Z1)
-        Z2 = W2.dot(A1) + b2
-        A2 = self.softmax(Z2)
-
-        return(A2)
-
-    def updateNeuralNetworks(self,parameters,mutation):
-        W1 = parameters['W1']
-        b1 = parameters['b1']
-        W2 = parameters['W2']
-        b2 = parameters['b2']
-
-        W1 = W1 + mutation
-        b1 = b1 + mutation
-        W2 = W2 + mutation
-        b2 = b2 + mutation
-
-        parameters = {
-            'W1' : W1,
-            'b1' : b1,
-            'W2' : W2,
-            'b2' : b2
-        }
-
-        return(parameters)
-
-    def softmax(self,X):
-        return(np.exp(X)/np.exp(X).sum())
 
 
 
