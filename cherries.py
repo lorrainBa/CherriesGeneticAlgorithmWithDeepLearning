@@ -9,12 +9,12 @@ import numpy as np
 
 pygame.init()
 
-random.seed(2)
-np.random.seed(12)
+random.seed(7)
+np.random.seed(5)
 
-frameRate = 80
-numberOfSurvivor = 1
-numberOfFruit = 10
+frameRate = 600
+numberOfSurvivor = 30
+numberOfFruit = 90
 #Variables of the screen and hud
 #screen variables
 screenWidth = 1800
@@ -63,21 +63,31 @@ class Brain():
         #Get the 
         n0 = numberOfBrainCaptor
         #Number of neuron on first layer
-        n1 = 4
+        n1 = 6
         #Numer of neuron on last layer to get the x and y coord
         n2 = 2
+
+        n3=4
 
         if brainParameters == False:
             W1 = np.random.randn(n1,n0)
             b1 = np.random.randn(n1,1)
-            W2 = np.random.randn(n2,n1)
-            b2 = np.random.randn(n2,1)
+
+            W2 = np.random.randn(n3,n1)
+            b2 = np.random.randn(n3,1)
+
+            W3 = np.random.randn(n2,n3)
+            b3 = np.random.randn(n2,1)
+
+            
             #Important variables
             self.brainParameters = {
                 'W1' : W1,
                 'b1' : b1,
                 'W2' : W2,
-                'b2' : b2
+                'b2' : b2,
+                'W3' : W3,
+                'b3' : b3
             }
 
         else:
@@ -85,29 +95,52 @@ class Brain():
 
     def prediction(self,X):
 
-        print("entrée", X)
-        print("parametres",self.brainParameters)
+        
+        """print("parametres",self.brainParameters)"""
         W1 = self.brainParameters['W1']
         b1 = self.brainParameters['b1']
         W2 = self.brainParameters['W2']
         b2 = self.brainParameters['b2']
-
-        Z1 = W1.dot(X) + b1
-        print("Z1", Z1)
-        #relu activation
-        A1 = 1 / (1+np.exp(-Z1))
-        print("A1", Z1)
-        Z2 = W2.dot(A1) + b2
-        print("Z2", Z2)
-        #Softmax activation
-        A2 = np.tanh(Z2)
-        print("sortie", A2)
-        A20 = A2[0][0] / (abs(A2[0][0])+abs(A2[1][0]))
-        A21 = A2[1][0] / (abs(A2[0][0])+abs(A2[1][0]))
-        A2[0][0] = A20
-        A2[1][0]= A21
+        W3 = self.brainParameters['W3']
+        b3 = self.brainParameters['b3']
         
-        return(A2)
+        
+        Z1 = W1.dot(X) + b1
+        
+
+
+        #relu activation
+        """A1 = 1 / (1+np.exp(-Z1))
+        print(" A1", A1)"""
+
+        Z2 = W2.dot(Z1) + b2
+        
+
+        """A2 = 1 / (1+np.exp(-Z2))
+        print(" A2", A2)"""
+
+        Z3 = W3.dot(Z2) + b3
+        
+        A3=Z3
+        #Softmax activation
+        """A3 = np.tanh(Z3)"""
+        
+        """A20 = A3[0][0] /2
+        A21 = A3[1][0] /2"""
+        A20 = A3[0][0] / (abs(A3[0][0])+abs(A3[1][0]))
+        A21 = A3[1][0] / (abs(A3[0][0])+abs(A3[1][0]))
+        A3[0][0] = A20
+        A3[1][0]= A21
+
+        """print("entrée", X)
+        print("w1 dot",W1.dot(X))
+        print("b1", b1)
+        print(" som", Z1)
+        print(" Z2", Z2)
+        print(" Z3", Z3)
+        print("A3", A3)
+        print("sortieNormalised", A3)"""
+        return(A3)
 
     def updateNeuralNetworks(self,parameters,mutation):
         W1 = self.brainParameters['W1']
@@ -145,6 +178,7 @@ class Survivor(pygame.sprite.Sprite):
         self.genome = genome
         #Init of the neural network model
         self.brain = Brain(4,brain)
+        self.GetOutOfScreen = False
         """
         self.model = tf.keras.models.Sequential()
         self.model.add(tf.keras.layers.Dense(5,activation="relu"))
@@ -156,7 +190,7 @@ class Survivor(pygame.sprite.Sprite):
         )"""
 
         #Variable that describe his comportment and score
-        self.score = 0
+        self.score = 25
         self.stamina=20
         self.currentStamina = self.stamina
         #Comportment of the survivor
@@ -196,7 +230,7 @@ class Survivor(pygame.sprite.Sprite):
         if listOfFruitInCollision:
             for fruit in listOfFruitInCollision:
                 fruit.destroy()
-                self.score += 1
+                self.score += 4
 
         #Collision with survivor
         listOfSurvivorToEat = []
@@ -315,6 +349,7 @@ class Survivor(pygame.sprite.Sprite):
         xFruitN *= widthNormalization
         yFruitN *= heightNormalization
         
+        """output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))"""
         output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))
 
         return(output[0][0],output[1][0])
@@ -352,7 +387,7 @@ class Survivor(pygame.sprite.Sprite):
             else:
                 self.rect.centery += signY
             """
-        if self.rect.centerx <= 0:
+        """if self.rect.centerx <= 0:
             self.rect.centerx = gameWidth 
         elif self.rect.centerx > gameWidth:
             self.rect.centerx = 0 
@@ -361,7 +396,22 @@ class Survivor(pygame.sprite.Sprite):
             self.rect.centery = gameHeight 
         elif self.rect.centery > gameHeight:
             self.rect.centery = 0 
-        
+        """
+        if not self.GetOutOfScreen:
+            if self.rect.centerx <= 0:
+                self.score -= 24
+                self.GetOutOfScreen = True
+            elif self.rect.centerx > gameWidth:
+                self.score -= 24
+                self.GetOutOfScreen = True
+
+            elif self.rect.centery <= 0:
+                self.score -= 24
+                self.GetOutOfScreen = True
+            elif self.rect.centery > gameHeight:
+                self.score -= 24
+                self.GetOutOfScreen = True
+            
     
 
 class Fruit(pygame.sprite.Sprite):
@@ -394,7 +444,7 @@ def initRound(typeOfInit):
 
         for OldSurvivor in survivorGroup:
             for i in range (OldSurvivor.score):
-                survivorsGenome.append((OldSurvivor.genome,OldSurvivor.brain.brainParameters))
+                survivorsGenome.append((OldSurvivor.genome,copy.deepcopy(OldSurvivor.brain.brainParameters)))
             OldSurvivor.destroy()
 
         #Spawn the new survivor with modified genome
@@ -403,17 +453,14 @@ def initRound(typeOfInit):
             xSpawn = random.randint(0,gameWidth)
             ySpawn = random.randint(0,gameHeight)
             genome,brain = random.choice(survivorsGenome)
+        
+            weightMutated,brainMutation = random.choice(list(brain.items()))
+            for i in range (4):
+                brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.01,0.01)
+                brain[weightMutated] = brainMutation
             
-            weightMutated,brainMutation = random.choice(list(brain.items()))
-            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
-            brain[weightMutated] = brainMutation
-            weightMutated,brainMutation = random.choice(list(brain.items()))
-            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
-            brain[weightMutated] = brainMutation
-            weightMutated,brainMutation = random.choice(list(brain.items()))
-            brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.2,0.2)
-            brain[weightMutated] = brainMutation
             
+
 
             #Generate mutation
             mutationSpeedSize = 0
@@ -433,7 +480,7 @@ def initRound(typeOfInit):
             survivorGroup.add(Survivor(xSpawn,ySpawn,newGenome,brain))
     
 
-        
+        fruitGroup.empty()
         for j in range(numberOfFruit):
             xSpawn = random.randint(0,gameWidth)
             ySpawn = random.randint(0,gameHeight)
