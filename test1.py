@@ -12,8 +12,8 @@ frameRate = 200
 
 #Variables of the screen and hud
 #screen variables
-screenWidth = 1800
-screenHeight = 1000
+screenWidth = 1000
+screenHeight = 700
 
 gameWidth = screenWidth - 400
 gameHeight = screenHeight
