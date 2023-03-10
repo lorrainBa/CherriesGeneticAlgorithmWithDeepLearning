@@ -9,12 +9,12 @@ import numpy as np
 
 pygame.init()
 
-random.seed(7)
+random.seed(6)
 np.random.seed(5)
 
-frameRate = 600
+frameRate = 60
 numberOfSurvivor = 30
-numberOfFruit = 90
+numberOfFruit = 60
 #Variables of the screen and hud
 #screen variables
 screenWidth = 1800
@@ -63,11 +63,11 @@ class Brain():
         #Get the 
         n0 = numberOfBrainCaptor
         #Number of neuron on first layer
-        n1 = 6
+        n1 = 5
         #Numer of neuron on last layer to get the x and y coord
         n2 = 2
 
-        n3=4
+        n3 = 4
 
         if brainParameters == False:
             W1 = np.random.randn(n1,n0)
@@ -110,14 +110,14 @@ class Brain():
 
 
         #relu activation
-        """A1 = 1 / (1+np.exp(-Z1))
-        print(" A1", A1)"""
+        """A1 = 1 / (1+np.exp(-Z1))"""
+        """print(" A1", A1)"""
 
         Z2 = W2.dot(Z1) + b2
         
 
-        """A2 = 1 / (1+np.exp(-Z2))
-        print(" A2", A2)"""
+        """A2 = 1 / (1+np.exp(-Z2))"""
+        """print(" A2", A2)"""
 
         Z3 = W3.dot(Z2) + b3
         
@@ -138,7 +138,6 @@ class Brain():
         print(" som", Z1)
         print(" Z2", Z2)
         print(" Z3", Z3)
-        print("A3", A3)
         print("sortieNormalised", A3)"""
         return(A3)
 
@@ -230,7 +229,7 @@ class Survivor(pygame.sprite.Sprite):
         if listOfFruitInCollision:
             for fruit in listOfFruitInCollision:
                 fruit.destroy()
-                self.score += 4
+                self.score += 3
 
         #Collision with survivor
         listOfSurvivorToEat = []
@@ -340,17 +339,25 @@ class Survivor(pygame.sprite.Sprite):
         #Get survivor normalized position
         xN = self.rect.centerx * widthNormalization
         yN = self.rect.centery * heightNormalization 
+        xFruitInput = 0
+        yFruitInput = 0
         #Get nearestfruit normalized position
-        xFruitN=0
-        yFruitN=0
+        xFruit=0
+        yFruit=0
         fruitsInSight,survivorInSight=self.visionOfTheEnvironment()
         if fruitsInSight:
-            xFruitN,yFruitN=self.findNearestFruit(fruitsInSight)
-        xFruitN *= widthNormalization
-        yFruitN *= heightNormalization
+            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
+            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
+        xFruitN = xFruit * widthNormalization
+        yFruitN = yFruit * heightNormalization
+        if xFruit >0:
+            xFruitInput = (xFruit - self.rect.centerx) / (self.genome["fieldOfView"]*34/math.sqrt(self.genome["size"]))
+            yFruitInput = (yFruit - self.rect.centery) / (self.genome["fieldOfView"]*34/math.sqrt(self.genome["size"]))
+
+            
         
         """output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))"""
-        output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))
+        output=self.brain.prediction(np.array([xN,yN,xFruitInput,yFruitInput]).reshape(4,1))
 
         return(output[0][0],output[1][0])
     
@@ -514,7 +521,7 @@ def play():
     timeOfRound = 0
     while True:
         timeOfRound += 1
-        if timeOfRound > 500:
+        if timeOfRound > 200:
             ownEvent = "newRound"
 
         
