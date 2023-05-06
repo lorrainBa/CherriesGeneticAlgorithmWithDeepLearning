@@ -9,12 +9,18 @@ import numpy as np
 
 pygame.init()
 
-random.seed(6)
-np.random.seed(5)
+random.seed()
+np.random.seed()
 
+#Parameter of the simulation
 frameRate = 60
-numberOfSurvivor = 30
-numberOfFruit = 60
+numberOfSurvivor = 10
+numberOfFruit = 200
+
+generationNumber=0
+
+showSimultation = True
+ownEvent=None
 #Variables of the screen and hud
 #screen variables
 screenWidth = 1800
@@ -31,7 +37,7 @@ textFont = pygame.font.Font(None,50)
 
 
 
-
+#Interface -------
 screen = pygame.display.set_mode((screenWidth,screenHeight))
 pygame.display.set_caption('Runner')
 clock = pygame.time.Clock()
@@ -40,6 +46,62 @@ gameBackground = pygame.Surface((screenWidth,screenHeight))
 gameBackground.fill("Black")
 genomeBackground = pygame.Surface((genomeScreenWidth,genomeScreenHeight))
 genomeBackground.fill("Grey")
+#Button
+class Button:
+    """Create a button, then blit the surface in the while loop"""
+ 
+    def __init__(self, text,  pos, font, bg="black", feedback=""):
+        self.x, self.y = pos
+        self.font = pygame.font.SysFont("Arial", font)
+        self.name = text
+        if feedback == "":
+            self.feedback = "text"
+        else:
+            self.feedback = feedback
+        self.change_text(text, bg)
+ 
+    def change_text(self, text, bg="black"):
+        """Change the text whe you click"""
+        self.text = self.font.render(text, 1, pygame.Color("White"))
+
+        self.size = self.text.get_size()
+        self.surface = pygame.Surface(self.size)
+        self.surface.fill(bg)
+        self.surface.blit(self.text, (0, 0))
+        self.rect = pygame.Rect(self.x, self.y, self.size[0], self.size[1])
+ 
+    def show(self):
+        screen.blit(self.surface, (self.x, self.y))
+ 
+    def click(self, event):
+        global showSimultation
+        global ownEvent
+        x, y = pygame.mouse.get_pos()
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if pygame.mouse.get_pressed()[0]:
+                if self.rect.collidepoint(x, y):
+                    if self.name == "Stop drawing":
+                        if showSimultation:
+                            showSimultation = False
+                        else:
+                            showSimultation = True
+                    elif self.name == "NextRound":
+                        ownEvent ="newRound"
+
+
+button1 = Button(
+    "Stop drawing",
+    (screenWidth-300, screenHeight/2),
+    font=30,
+    bg="black",
+    feedback="You clicked me")
+button2 = Button(
+    "NextRound",
+    (screenWidth-300, screenHeight/3),
+    font=30,
+    bg="black",
+    feedback="You clicked me")
+
 
 #Variable of the props
 survivorGroup = pygame.sprite.Group()
@@ -54,20 +116,22 @@ heightNormalization = 1/gameHeight
 
 class Brain():
     #Number of neuron on first layer
-    n1 = 4
+    n1 = 3
     #Numer of neuron on last layer to get the x and y coord
     n2 = 2
-
+    #Numer of neuron on last layer to get the output (coef,xspeed,ypseed)
+    n3 = 3
 
     def __init__(self,numberOfBrainCaptor, brainParameters = False):
-        #Get the 
-        n0 = numberOfBrainCaptor
+        #Get the number of parameters
+        n0 = numberOfBrainCaptor+2
         #Number of neuron on first layer
-        n1 = 5
+        n1 = self.n1
         #Numer of neuron on last layer to get the x and y coord
-        n2 = 2
-
-        n3 = 4
+        n2 = self.n3
+        #Number of parameters on the second layer
+        n3 = self.n1
+        self.brainParameters = {}
 
         if brainParameters == False:
             W1 = np.random.randn(n1,n0)
@@ -127,10 +191,17 @@ class Brain():
         
         """A20 = A3[0][0] /2
         A21 = A3[1][0] /2"""
-        A20 = A3[0][0] / (abs(A3[0][0])+abs(A3[1][0]))
-        A21 = A3[1][0] / (abs(A3[0][0])+abs(A3[1][0]))
+        temp = abs(A3[0][0])
+        if temp >1:
+            A20 = 1
+        else:
+            A20 = abs(A3[0][0])
+        
+        A21 = A3[1][0] / (abs(A3[1][0])+abs(A3[2][0]))
+        A22 = A3[2][0] / (abs(A3[1][0])+abs(A3[2][0]))
         A3[0][0] = A20
         A3[1][0]= A21
+        A3[2][0]= A22
 
         """print("entrée", X)
         print("w1 dot",W1.dot(X))
@@ -189,34 +260,35 @@ class Survivor(pygame.sprite.Sprite):
         )"""
 
         #Variable that describe his comportment and score
-        self.score = 25
+        self.score = 10
         self.stamina=20
         self.currentStamina = self.stamina
         #Comportment of the survivor
         self.state = "normal"
 
 
-        #Initialisation of the variable that describe our survivor
+        #Initialisation of the variable that describe our survivor in pygame (image and rect)
         self.image = pygame.transform.scale( pygame.image.load('graphics/player/player_stand.png').convert_alpha()  ,  (30*self.genome["size"],30*self.genome["size"])  )
         self.rect = self.image.get_rect(center = (xPosition,yPosition))
 
         
         
         
-        #Get direction and speed
+        """
+        #Get random direction and speed
         xSpeed = random.uniform(-1,1)
         if random.random() < 0.5:
             ySpeed = -(1-abs(xSpeed))
         else:
             ySpeed = (1-abs(xSpeed))
-        self.direction = (xSpeed,ySpeed)
+        self.direction = (xSpeed,ySpeed)"""
 
 
     #Update function
     def update(self):
         fruitsInSight,survivorInSight = self.visionOfTheEnvironment()
-        """self.moove(fruitsInSight,survivorInSight)"""
-        self.moove2()
+        """self.mooveRandomNearestFruit(fruitsInSight,survivorInSight)"""
+        self.mooveWithBrain()
         
         self.checkCollision()
     
@@ -229,7 +301,7 @@ class Survivor(pygame.sprite.Sprite):
         if listOfFruitInCollision:
             for fruit in listOfFruitInCollision:
                 fruit.destroy()
-                self.score += 3
+                self.score += 50
 
         #Collision with survivor
         listOfSurvivorToEat = []
@@ -248,9 +320,9 @@ class Survivor(pygame.sprite.Sprite):
         survivorInSight = pygame.sprite.spritecollide(self, survivorGroup, False, pygame.sprite.collide_circle_ratio(self.genome["fieldOfView"]))
         return(fruitsInSight,survivorInSight)
 
-
     #Moove function
-    def moove(self,fruitsInSight,survivorInSight):
+    def mooveRandomNearestFruit(self,fruitsInSight,survivorInSight):
+    
     
 
         if self.state == "exhausted":
@@ -319,51 +391,12 @@ class Survivor(pygame.sprite.Sprite):
                 self.rect.centery = gameHeight 
             elif self.rect.centery > gameHeight:
                 self.rect.centery = 0 
-
-    def findNearestFruit(self,fruitsInSight):
-        if fruitsInSight:
-            distanceNearestFruit = 10000
-            xToGo,yToGo = 0,0
-            #Find the nearest fruit
-            for fruit in fruitsInSight:
-                distanceFruitSprite = distanceBetweenSprites(self,fruit)
-                if distanceFruitSprite < distanceNearestFruit:
-                    xToGo,yToGo = fruit.rect.centerx,fruit.rect.centery
-                    distanceNearestFruit = distanceFruitSprite
-        return(xToGo,yToGo)
-    
-
-    def neuralNetworkDecision(self):
-        global widthNormalization
-        global heightNormalization
-        #Get survivor normalized position
-        xN = self.rect.centerx * widthNormalization
-        yN = self.rect.centery * heightNormalization 
-        xFruitInput = 0
-        yFruitInput = 0
-        #Get nearestfruit normalized position
-        xFruit=0
-        yFruit=0
-        fruitsInSight,survivorInSight=self.visionOfTheEnvironment()
-        if fruitsInSight:
-            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
-            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
-        xFruitN = xFruit * widthNormalization
-        yFruitN = yFruit * heightNormalization
-        if xFruit >0:
-            xFruitInput = (xFruit - self.rect.centerx) / (self.genome["fieldOfView"]*34/math.sqrt(self.genome["size"]))
-            yFruitInput = (yFruit - self.rect.centery) / (self.genome["fieldOfView"]*34/math.sqrt(self.genome["size"]))
-
-            
-        
-        """output=self.brain.prediction(np.array([xN,yN,xFruitN,yFruitN]).reshape(4,1))"""
-        output=self.brain.prediction(np.array([xN,yN,xFruitInput,yFruitInput]).reshape(4,1))
-
-        return(output[0][0],output[1][0])
-    
-    def moove2(self):
+ 
+    def mooveWithBrain(self):
         currentX,currentY= self.rect.centerx * widthNormalization , self.rect.centery * heightNormalization
-        xSpeed, ySpeed = self.neuralNetworkDecision()
+        coef,xSpeed, ySpeed = self.neuralNetworkDecision()
+        xSpeed=xSpeed*coef*0.5
+        ySpeed=ySpeed*coef*0.5
         """xSpeed = (xSpeed - 0.5)*2
         ySpeed = (ySpeed - 0.5)*2"""
         """if xSpeed <0.5:
@@ -406,20 +439,76 @@ class Survivor(pygame.sprite.Sprite):
         """
         if not self.GetOutOfScreen:
             if self.rect.centerx <= 0:
-                self.score -= 24
+                self.score =1
                 self.GetOutOfScreen = True
             elif self.rect.centerx > gameWidth:
-                self.score -= 24
+                self.score =1
                 self.GetOutOfScreen = True
 
             elif self.rect.centery <= 0:
-                self.score -= 24
+                self.score =1
                 self.GetOutOfScreen = True
             elif self.rect.centery > gameHeight:
-                self.score -= 24
+                self.score =1
                 self.GetOutOfScreen = True
+
             
+    def findNearestFruit(self,fruitsInSight):
+        if fruitsInSight:
+            distanceNearestFruit = 10000
+            xToGo,yToGo = 0,0
+            #Find the nearest fruit
+            for fruit in fruitsInSight:
+                distanceFruitSprite = distanceBetweenSprites(self,fruit)
+                if distanceFruitSprite < distanceNearestFruit:
+                    xToGo,yToGo = fruit.rect.centerx,fruit.rect.centery
+                    distanceNearestFruit = distanceFruitSprite
+        return(xToGo,yToGo)
     
+    def neuralNetworkDecision(self):
+        global widthNormalization
+        global heightNormalization
+        #Get survivor normalized position
+        x = self.rect.centerx
+        y = self.rect.centery
+        xN = self.rect.centerx * widthNormalization
+        yN = self.rect.centery * heightNormalization 
+        xFruitInput = 0
+        yFruitInput = 0
+        #Get nearestfruit normalized position
+        xFruit=0
+        yFruit=0
+        fruitsInSight,survivorInSight=self.visionOfTheEnvironment()
+        if fruitsInSight:
+            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
+            xFruit,yFruit=self.findNearestFruit(fruitsInSight)
+        xFruitN = xFruit * widthNormalization
+        yFruitN = yFruit * heightNormalization
+        if xFruit >0:
+            
+            xFruitInput = (xFruit - self.rect.centerx) / (self.genome["fieldOfView"]/math.sqrt(self.genome["size"]))
+            yFruitInput = (yFruit - self.rect.centery) / (self.genome["fieldOfView"]/math.sqrt(self.genome["size"]))
+
+        xInput = (1/((abs(x))**2+0.0001) + 1/((abs(gameWidth-x)+0.0001)**2))/10000
+        
+
+        yInput = (1/((abs(y))**2+0.0001) + 1/((abs(gameHeight-y)+0.0001)**2))/10000
+        
+
+
+        output=self.brain.prediction(np.array([xN,yN,xInput,yInput,xFruitInput,yFruitInput]).reshape(6,1))
+        """output=self.brain.prediction(np.array([xFruitN,yFruitN,xFruitInput,yFruitInput]).reshape(4,1))"""
+
+        return(output[0][0],output[1][0],output[2][0])
+    
+
+
+
+
+
+
+
+
 
 class Fruit(pygame.sprite.Sprite):
     def __init__(self,xPosition,yPosition):
@@ -436,7 +525,15 @@ class Fruit(pygame.sprite.Sprite):
         self.kill()
 
 
-    
+
+
+
+
+
+
+
+
+
 
 def initRound(typeOfInit):
     global numberOfSurvivor
@@ -455,6 +552,7 @@ def initRound(typeOfInit):
             OldSurvivor.destroy()
 
         #Spawn the new survivor with modified genome
+
         for i in range (numberOfSurvivor):
             #Get actual value
             xSpawn = random.randint(0,gameWidth)
@@ -463,7 +561,7 @@ def initRound(typeOfInit):
         
             weightMutated,brainMutation = random.choice(list(brain.items()))
             for i in range (4):
-                brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.01,0.01)
+                brainMutation[random.randint(0,len(brainMutation)-1)] += random.uniform(-0.05,0.05)
                 brain[weightMutated] = brainMutation
             
             
@@ -511,17 +609,15 @@ def initRound(typeOfInit):
     meanGenome = getMeanGenome()
 
 
-
-
-    
-
 def play():
+    global showSimultation
     global frameRate
-    ownEvent=None
+    global ownEvent
+    global generationNumber
     timeOfRound = 0
     while True:
         timeOfRound += 1
-        if timeOfRound > 200:
+        if timeOfRound > 1200:
             ownEvent = "newRound"
 
         
@@ -534,6 +630,7 @@ def play():
             ownEvent = "newRound"
 
         if ownEvent == "newRound":
+            generationNumber += 1
             timeOfRound = 0
             pygame.time.wait(0)
             initRound("newRound")
@@ -541,27 +638,31 @@ def play():
 
 
         for event in pygame.event.get():
-            
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
-                
-            
+            button1.click(event)
+            button2.click(event)                
         
-        drawGame()
+        updateGame()
+        if showSimultation:
+            drawGame()
         clock.tick(frameRate)
 
+def updateGame():
+    #Props
+    fruitGroup.update()
+    survivorGroup.update()
+    
 def drawGame():
     #Background
     screen.blit(gameBackground, (0,0))
     screen.blit(genomeBackground, (gameWidth,0))
-    #Props
-    fruitGroup.update()
     fruitGroup.draw(screen)
-    survivorGroup.update()
     survivorGroup.draw(screen)
+    button1.show()
+    button2.show()
     displayMeanGenome()
-
     pygame.display.update()
 
 def displayMeanGenome():
@@ -570,12 +671,14 @@ def displayMeanGenome():
     global screenHeight
     global genomeScreenWidth
     global genomeScreenHeight
+    global generationNumber
 
     global meanGenome
     numberOfGen = len(meanGenome)
     pixelForEachGenome = genomeScreenWidth / numberOfGen
 
     for iterator,(key,value) in enumerate(meanGenome.items()):
+        screen.blit(textFont.render( "Generation: "+str(generationNumber) ,True,"White"), (gameWidth+30   ,30))
         screen.blit(textFont.render( key,True,"White")                  , (screenWidth - genomeScreenWidth + iterator * pixelForEachGenome +50 , genomeScreenHeight -30))
         screen.blit(textFont.render( str(round(value,1)) ,True,"White") , (screenWidth - genomeScreenWidth + iterator * pixelForEachGenome +50 , genomeScreenHeight -80) )
     
