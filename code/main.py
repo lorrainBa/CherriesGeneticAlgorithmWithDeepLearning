@@ -9,11 +9,11 @@ import numpy as np
 
 
 from brainClass import Brain
-from buttonClass import Button
-
-
+from survivorClass import Survivor
+from fruitClass import Fruit
 pygame.init()
 
+#Get random seed for rand and numpy
 random.seed()
 np.random.seed()
 
@@ -42,7 +42,7 @@ textFont = pygame.font.Font(None,50)
 
 
 
-#Interface -------------------------------------------------------------------------------------------------------
+#Interface ---------------------------------------------------------------------------
 screen = pygame.display.set_mode((screenWidth,screenHeight))
 pygame.display.set_caption('Runner')
 clock = pygame.time.Clock()
@@ -53,7 +53,52 @@ genomeBackground = pygame.Surface((genomeScreenWidth,genomeScreenHeight))
 genomeBackground.fill("Grey")
 
 
-#Button
+#Button------------------------------------------------------------------------------
+class Button:
+    """Create a button, then blit the surface in the while loop"""
+ 
+    def __init__(self,screen , text,  pos, font, bg="black", feedback=""):
+        self.screen = screen
+        self.x, self.y = pos
+        self.font = pygame.font.SysFont("Arial", font)
+        self.name = text
+        if feedback == "":
+            self.feedback = "text"
+        else:
+            self.feedback = feedback
+        self.change_text(text, bg)
+ 
+    def change_text(self, text, bg="black"):
+        """Change the text whe you click"""
+        self.text = self.font.render(text, 1, pygame.Color("White"))
+
+        self.size = self.text.get_size()
+        self.surface = pygame.Surface(self.size)
+        self.surface.fill(bg)
+        self.surface.blit(self.text, (0, 0))
+        self.rect = pygame.Rect(self.x, self.y, self.size[0], self.size[1])
+ 
+    def show(self):
+        self.screen.blit(self.surface, (self.x, self.y))
+ 
+    def click(self, event):
+        global showSimultation
+        global ownEvent
+        x, y = pygame.mouse.get_pos()
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if pygame.mouse.get_pressed()[0]:
+                if self.rect.collidepoint(x, y):
+                    if self.name == "Stop drawing":
+                        if showSimultation:
+                            showSimultation = False
+                        else:
+                            showSimultation = True
+                    elif self.name == "NextRound":
+                        ownEvent ="newRound"
+
+
+
+
 button1 = Button(
     screen,
     "Stop drawing",
@@ -70,15 +115,13 @@ button2 = Button(
     feedback="You clicked me")
 
 
-
-
-#Variable of the props--------------------------------------------------------------------------------------------
+#Variable of the props-------------------------------------------------------------------------------
 survivorGroup = pygame.sprite.Group()
 fruitGroup = pygame.sprite.Group()
 
 meanGenome=None
 
-#Neural network variables-----------------------------------------------------------------------------------------
+#Neural network variables----------------------------------------------------------------------------
 factorWidthByHeight = gameWidth/gameHeight
 widthNormalization = 1/gameWidth
 heightNormalization = 1/gameHeight
@@ -86,29 +129,10 @@ heightNormalization = 1/gameHeight
 
 
 
-  
 
 
 
 
-
-
-
-
-
-class Fruit(pygame.sprite.Sprite):
-    def __init__(self,xPosition,yPosition):
-        super().__init__()
-        #Initialisation of the variable that describe our fruit
-        self.image = pygame.transform.scale( pygame.image.load('graphics/characters/cherries.png').convert_alpha()  ,  (20,20)  )
-        self.rect = self.image.get_rect(center = (xPosition,yPosition))
-
-
-    def update(self):
-        pass
-    
-    def destroy(self):
-        self.kill()
 
 
 
@@ -250,8 +274,8 @@ def play():
 
 def updateGame():
     #Props
-    fruitGroup.update()
-    survivorGroup.update()
+    fruitGroup.update(fruitGroup,survivorGroup)
+    survivorGroup.update(fruitGroup,survivorGroup,widthNormalization,heightNormalization)
     
 def drawGame():
     #Background
@@ -312,8 +336,6 @@ def getMeanGenome():
 
 
 
-def distanceBetweenSprites(sprite1,sprite2):
-    return(math.sqrt((sprite1.rect.centerx-sprite2.rect.centerx)**2+(sprite1.rect.centery-sprite2.rect.centery)**2))
 
 
 
@@ -331,6 +353,9 @@ def main():
 
 
 main()
+
+
+
 
 
 
