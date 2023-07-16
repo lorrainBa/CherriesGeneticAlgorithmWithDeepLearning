@@ -23,8 +23,8 @@ showSimultation = True
 ownEvent=None
 #Variables of the screen and hud
 #screen variables
-screenWidth = 1800
-screenHeight = 800
+screenWidth = 1400
+screenHeight = 700
 
 gameWidth = screenWidth - 400
 gameHeight = screenHeight
@@ -248,7 +248,6 @@ class Survivor(pygame.sprite.Sprite):
         self.genome = genome
         #Init of the neural network model
         self.brain = Brain(4,brain)
-        self.GetOutOfScreen = False
         """
         self.model = tf.keras.models.Sequential()
         self.model.add(tf.keras.layers.Dense(5,activation="relu"))
@@ -437,20 +436,7 @@ class Survivor(pygame.sprite.Sprite):
         elif self.rect.centery > gameHeight:
             self.rect.centery = 0 
         """
-        if not self.GetOutOfScreen:
-            if self.rect.centerx <= 0:
-                self.score =1
-                self.GetOutOfScreen = True
-            elif self.rect.centerx > gameWidth:
-                self.score =1
-                self.GetOutOfScreen = True
-
-            elif self.rect.centery <= 0:
-                self.score =1
-                self.GetOutOfScreen = True
-            elif self.rect.centery > gameHeight:
-                self.score =1
-                self.GetOutOfScreen = True
+        
 
             
     def findNearestFruit(self,fruitsInSight):
@@ -496,8 +482,8 @@ class Survivor(pygame.sprite.Sprite):
         
 
 
-        output=self.brain.prediction(np.array([xN,yN,xInput,yInput,xFruitInput,yFruitInput]).reshape(6,1))
-        """output=self.brain.prediction(np.array([xFruitN,yFruitN,xFruitInput,yFruitInput]).reshape(4,1))"""
+        """output=self.brain.prediction(np.array([xN,yN,xInput,yInput,xFruitInput,yFruitInput]).reshape(6,1))"""
+        output=self.brain.prediction(np.array([xFruitN,yFruitN,xFruitInput,yFruitInput]).reshape(4,1))
 
         return(output[0][0],output[1][0],output[2][0])
     
@@ -547,6 +533,19 @@ def initRound(typeOfInit):
         #Get more chance to pass your genome when your score is higher
 
         for OldSurvivor in survivorGroup:
+
+            #Verify if the survivor is on the screen or outside to change his score
+            if OldSurvivor.rect.centerx <= 0:
+                OldSurvivor.score =1
+            elif OldSurvivor.rect.centerx > gameWidth:
+                OldSurvivor.score =1
+
+            elif OldSurvivor.rect.centery <= 0:
+                OldSurvivor.score =1
+            elif OldSurvivor.rect.centery > gameHeight:
+                OldSurvivor.score =1
+
+
             for i in range (OldSurvivor.score):
                 survivorsGenome.append((OldSurvivor.genome,copy.deepcopy(OldSurvivor.brain.brainParameters)))
             OldSurvivor.destroy()
@@ -617,7 +616,7 @@ def play():
     timeOfRound = 0
     while True:
         timeOfRound += 1
-        if timeOfRound > 1200:
+        if timeOfRound > 1000:
             ownEvent = "newRound"
 
         
@@ -647,7 +646,7 @@ def play():
         updateGame()
         if showSimultation:
             drawGame()
-        clock.tick(frameRate)
+            clock.tick(frameRate)
 
 def updateGame():
     #Props
